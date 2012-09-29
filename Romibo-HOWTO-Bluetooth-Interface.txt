@@ -1,0 +1,118 @@
+Romibo HOWTO Guide - Using a Romibo(R) Rev3 with a Bluetooth Modem
+
+Copyright (c) 2012 Garth Zeglin
+Provided under the terms of the Creative Common Attribution-NonCommercial-ShareAlike license.
+
+================================================================
+History.
+
+Sep 29, 2012 - reformatted as plain text (emacs org-mode).
+Sep 20, 2012 - original version by Garth Zeglin.
+
+================================================================
+Legal.
+
+The Romibo(R) robot is a social robot designed for therapy, education and fun.
+The Romibo Project is a Carnegie Mellon University research project and a
+community co-development project managed by Origami Robotics LLC.  More project
+information can be found at http://www.romibo.org. Romibo is a registered
+trademark of Origami Robotics LLC.
+
+================================================================
+
+1. Introduction.
+
+   The Romibo Rev3 board exposes an RS-232 serial port on a connector which can
+   connect to an external Bluetooth module for remote control from a host such as a
+   laptop.  This page details the hardware and software details for setting this
+   up.
+
+
+2. BlueSMiRF Silver
+
+   We have tested the following Bluetooth module with Romibo:
+
+   Bluetooth Modem - BlueSMiRF Silver
+   SparkFun part WRL-10269 
+   $39.95/each
+   https://www.sparkfun.com/products/10269
+
+   The module is a carrier board for a Roving Network RN-42 module.  The
+   "Sparkfun page":https://www.sparkfun.com/products/10269 has documentation
+   including schematic and RN-42 users guide.
+
+
+3. Preparing the BlueSMiRF
+
+   The module has a row of six pads at one edge.  We use just the middle four.  Our preparation:
+
+     1. Solder a four-pin Molex connector to the middle four pins of the BlueSMiRF
+        on the component side of the module.  The connector part is Molex
+        22-12-2044, available from Mouser as 538-22-12-2044.  This is the
+        right-angle version of the J1 serial port connector on the Romibo Rev3
+        board (labeled "WiFi").
+     2. On the back of the BlueSMiRF, solder across the CTS/RTS bridge pads. They
+        are unlabeled, but close to the "n" in "sparkfun.com".
+     3. Make a four-wire cable. The cable uses two identical housings, Molex
+        22-01-3047 (Mouser 538-22-01-3047), and a total of eight crimp pins, Molex
+        08-52-0123 (Mouser 538-08-52-0123).  The wiring must follow the following
+        pattern:
+
+        J1 on Rev3       signal                           BlueSMiRF Molex
+        A connector                                       B connector        
+        1                +3.3V                            4                
+        2                TX (Arduino -> Bluetooth)        1
+        3                RX (Bluetooth -> Arduino)        2
+        4                GND                              3
+
+        Label the Arduino end "A" and the Bluetooth end "B" and always use it in this orientation.
+
+4. Pairing the BlueSMiRF with a laptop.
+
+   All Bluetooth devices must be "paired" with a host to allow a connection.  The
+   details vary with operating system.  Following is a result from testing on two
+   Mac laptops:
+
+     1. Plug the BlueSMiRF "A" cable end into the Rev3 board.  Plug the Arduino
+        into USB to provide power.
+     2. A PowerBook G4 running OS X 10.4 failed to pair with the Bluetooth device.
+     3. A MacBook Pro running OS X 10.6 promptly discovered it as RN42-45E3.
+     4. Select "Passcode Options" and "Do not use a passcode"
+     5. It paired as device /dev/tty.RN42-45E3-SPP
+     6. On first connection it requested a pairing code.  The code 1234 worked.
+
+
+5. Setting up Romibo for Bluetooth Access
+
+  The J1 connector uses Arduino Serial Port 1, available in software as the
+  Serial1 object.  Serial Port 0 is the USB connection and is available as the
+  Serial object.
+
+  Some of the default sketches implement a command processor to parse input from
+  Serial1.  Things to check:
+
+    1. The top-level sketch should initialize the port with a baud rate, typically
+       in setup.  E.g. Serial1.begin(115200); The default BlueSMiRF baud rate is
+       115200, it isn't clear if that can be changed via the normal host driver.
+
+    2. The command line processor should be enabled, typically in CommandLine.ino.
+       The function poll_network_input() needs to be called.  It is enabled by the
+       configuration value ROMIBO_WIFLY_INSTALLED.  Check for this value in the
+       RomiboConfig.h file and make sure it is set to 1.  This function is called
+       from the core robot polling loop in RomiboRobot.cpp.
+
+    3. The command protocol is ASCII and line-delimited.  The best documentation
+       is the code in CommandLine.ino.
+
+    4. Romibo will ignore commands over Bluetooth until a "begin" command is
+       received.
+
+    5. Others to try: set, drive, stop, say, etc.
+
+    6. Additional commands can be added at will into the if/else structure in
+       execute_command().
+
+    7. There is not yet implemented any text output to Serial1(), so output
+       commands will work but no sensors can be read.  This is not hard, but will
+       involve adding commands to generate output to Serial1.  It is recommend to
+       also use the Arduino IDE serial console while debugging.
